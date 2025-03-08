@@ -2,8 +2,8 @@
 
 A **gesture-controlled virtual mouse** using **MediaPipe and OpenCV**, enabling touchless interaction by tracking hand movements and gestures in real time.<br><br>  
 
-## ✨ Features<br>
-✅ **Hand Tracking** – Uses **MediaPipe** to detect hand landmarks.<br>  
+## ✨ Features <br>
+✅ **Hand Tracking** – Uses **MediaPipe** to detect hand landmarks.<br>
 ✅ **Cursor Control** – Moves the mouse pointer based on **index finger** position.  <br>
 ✅ **Gesture-Based Clicking** – Pinch to click, two-finger scroll for navigation.  <br>
 ✅ **Smooth Performance** – Dynamic smoothing for precise movement.  <br>
@@ -21,7 +21,7 @@ A **gesture-controlled virtual mouse** using **MediaPipe and OpenCV**, enabling 
 - Pinch gesture (index + thumb) for left-click.<br>
 - Two-finger gesture for scrolling.<br><br>
 
-## Use Cases for Integration 🚀<<br>
+## Use Cases for Integration 🚀<br>
 🔹 Accessibility & Assistive Tech – Enables hands-free computer control for individuals with motor impairments.<br>
 🔹 Smart Home & IoT – Gesture-based navigation for smart TVs, IoT devices, and automation systems.<br>
 🔹 Gaming & VR/AR – Enhances interaction in virtual reality and gaming applications.<br>
