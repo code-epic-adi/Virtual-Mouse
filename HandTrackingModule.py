@@ -2,18 +2,16 @@ import mediapipe as mp
 import cv2
 import time
 import math
+import numpy as np
 
 
-# Define a class to detect hands
 class handDetector():
-    def __init__(self, mode=False, maxHands=2, detection_confidence=0.5, tracking_confidence=0.5):
-        # Initialize the hand detector with the given parameters
+    def __init__(self, mode=False, maxHands=1, detection_confidence=0.8, tracking_confidence=0.8):
         self.mode = mode
         self.maxHands = maxHands
         self.detection_confidence = detection_confidence
         self.tracking_confidence = tracking_confidence
 
-        # Initialize mediapipe hands solution
         self.mpHands = mp.solutions.hands
         self.hands = self.mpHands.Hands(
             static_image_mode=self.mode,
@@ -21,113 +19,75 @@ class handDetector():
             min_detection_confidence=self.detection_confidence,
             min_tracking_confidence=self.tracking_confidence
         )
-        self.mpDraw = mp.solutions.drawing_utils  # Utility to draw hand landmarks
+        self.mpDraw = mp.solutions.drawing_utils
+        self.tipIds = [4, 8, 12, 16, 20]  # [thumb, index, middle, ring, pinky]
 
-        self.tipIds = [8, 12, 16, 20]
-
-    # Method to find hands in the image
     def findHands(self, img, draw=True):
-        # Convert the image to RGB
-        iRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(iRGB)  # Process the image to find hands
+        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(imgRGB)
 
-        # If hands are detected, draw landmarks on the image
         if self.results.multi_hand_landmarks:
             for handLms in self.results.multi_hand_landmarks:
                 if draw:
-                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
-
+                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS,
+                                               self.mpDraw.DrawingSpec(color=(255, 0, 255), thickness=2,
+                                                                       circle_radius=2),
+                                               self.mpDraw.DrawingSpec(color=(57, 255, 20), thickness=2))
         return img
 
-    # Method to find the position of specific landmarks
     def findPosition(self, img, handNo=0, draw=True):
+        self.lmList = []
         xList = []
         yList = []
         bbox = []
-        self.lmList = []
+
         if self.results.multi_hand_landmarks:
             myHand = self.results.multi_hand_landmarks[handNo]
             for id, lm in enumerate(myHand.landmark):
-                # print(id, lm)
                 h, w, c = img.shape
                 cx, cy = int(lm.x * w), int(lm.y * h)
+                self.lmList.append([id, cx, cy])
                 xList.append(cx)
                 yList.append(cy)
-                # print(id, cx, cy)
-                self.lmList.append([id, cx, cy])
+
+                if draw and id in self.tipIds:
+                    cv2.circle(img, (cx, cy), 5, (255, 0, 0), cv2.FILLED)
+
+            if xList and yList:
+                bbox = min(xList), min(yList), max(xList), max(yList)
                 if draw:
-                    cv2.circle(img, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
-
-        if len(xList) & len(yList):
-            xmin, xmax = min(xList), max(xList)
-            ymin, ymax = min(yList), max(yList)
-            bbox = xmin, ymin, xmax, ymax
-
-            if draw:
-                cv2.rectangle(img, (xmin - 20, ymin - 20), (xmax + 20, ymax + 20),
-                              (0, 255, 0), 2)
+                    cv2.rectangle(img, (bbox[0] - 20, bbox[1] - 20),
+                                  (bbox[2] + 20, bbox[3] + 20), (0, 255, 0), 2)
 
         return self.lmList, bbox
 
     def fingersUp(self):
         fingers = []
-
-        if self.lmList[4][1] > self.lmList[5][1]:
-            fingers.append(1)
-        else:
-            fingers.append(0)
-
-        for id in range(0, 4):
-            if self.lmList[self.tipIds[id]][2] < self.lmList[self.tipIds[id] - 2][2]:
+        if len(self.lmList) >= 21:
+            # Thumb
+            if self.lmList[self.tipIds[0]][1] < self.lmList[self.tipIds[0] - 1][1]:
                 fingers.append(1)
-
             else:
                 fingers.append(0)
 
+            # Other fingers
+            for id in range(1, 5):
+                if self.lmList[self.tipIds[id]][2] < self.lmList[self.tipIds[id] - 2][2]:
+                    fingers.append(1)
+                else:
+                    fingers.append(0)
         return fingers
 
-    def findDistance(self, p1, p2, img, draw=True, r=15, t=3):
+    def findDistance(self, p1, p2, img=None, draw=True, r=15, t=3):
         x1, y1 = self.lmList[p1][1:]
         x2, y2 = self.lmList[p2][1:]
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
 
-        if draw:
+        if draw and img is not None:
             cv2.line(img, (x1, y1), (x2, y2), (255, 0, 255), t)
             cv2.circle(img, (x1, y1), r, (255, 0, 255), cv2.FILLED)
             cv2.circle(img, (x2, y2), r, (255, 0, 255), cv2.FILLED)
             cv2.circle(img, (cx, cy), r, (0, 0, 255), cv2.FILLED)
-            length = math.hypot(x2 - x1, y2 - y1)
 
-        return length, img, [x1, y1, x2, y2, cx, cy]
-
-
-# Main function to run the hand detection
-def main():
-    pTime = 0  # Previous time to calculate FPS
-    cap = cv2.VideoCapture(0)  # Capture video from the default camera
-    detector = handDetector()  # Create an instance of the handDetector
-
-    while True:
-        success, img = cap.read()  # Read a frame from the camera
-        img = detector.findHands(img)  # Find hands in the image
-        lmList = detector.findPosition(img)  # Find the positions of the landmarks
-
-        cTime = time.time()  # Current time
-        fps = 1 / (cTime - pTime)  # Calculate FPS
-        pTime = cTime  # Update previous time
-
-        # Display FPS on the image
-        cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 2)
-
-        # Show the image with landmarks
-        cv2.imshow("Output", img)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break  # Break the loop if 'q' is pressed
-
-    cap.release()  # Release the camera
-    cv2.destroyAllWindows()  # Close all OpenCV windows
-
-
-# Entry point of the script
-if __name__ == "__main__":
-    main()  # Run the main function
+        length = math.hypot(x2 - x1, y2 - y1)
+        return length, [x1, y1, x2, y2, cx, cy]
